@@ -114,6 +114,8 @@ def calculate_gain_and_loss(
             disposal = create_disposal(disposal_trades, matching_trades)
             disposals.append(disposal)
 
+    open_positions = all_trades[all_trades["Quantity"] != 0]
+
     # Write all disposals to a CSV file
     with open(output_file, "w") as f:
         for disposal in disposals:

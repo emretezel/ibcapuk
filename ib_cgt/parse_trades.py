@@ -63,17 +63,7 @@ def parse_trades(
                 # If we have previously read columns, then this is the start of a new table for a new instrument type.
                 # We need to add the previous instrument type and trades to the dataframe.
                 if columns:
-                    df = pd.DataFrame(
-                        trades, columns=["Instrument Type", "Currency"] + columns
-                    )
-
-                    # Convert the Date/Time column to a datetime object
-                    df["Date/Time"] = pd.to_datetime(
-                        df["Date/Time"], format="%Y-%m-%d, %H:%M:%S"
-                    )
-
-                    # Remove columns which are \xa0
-                    df = df.loc[:, df.columns != "\xa0"]
+                    df = create_df(columns, trades)
                     dfs.append(df)
                     trades = []
 
@@ -107,10 +97,7 @@ def parse_trades(
                     )
 
         # We still need to add the last instrument type to the dataframe
-        df = pd.DataFrame(trades, columns=["Instrument Type", "Currency"] + columns)
-
-        # Convert the Date/Time column to a datetime object
-        df["Date/Time"] = pd.to_datetime(df["Date/Time"], format="%Y-%m-%d, %H:%M:%S")
+        df = create_df(columns, trades)
         dfs.append(df)
 
     # Concatenate the dataframes and write them to a CSV file, ignoring the index
@@ -170,5 +157,27 @@ def parse_trades(
     trades.to_csv(output_file, index=False)
 
 
+def create_df(columns, trades):
+    df = pd.DataFrame(trades, columns=["Instrument Type", "Currency"] + columns)
+
+    # Convert the Date/Time column to a datetime object
+    df["Date/Time"] = pd.to_datetime(df["Date/Time"], format="%Y-%m-%d, %H:%M:%S")
+
+    # Remove columns which are \xa0
+    df = df.loc[:, df.columns != "\xa0"]
+    return df
+
+
 if __name__ == "__main__":
-    parse_trades(["../statements/U1004320_20240405_20240405.htm"], [8])
+    parse_trades(
+        [
+            "../statements/18_19.htm",
+            "../statements/19_20.htm",
+            "../statements/20_21.htm",
+            "../statements/21_22.htm",
+            "../statements/22_23.htm",
+            "../statements/23_24.htm",
+            "../statements/24_25.htm",
+        ],
+        [8, 8, 8, 8, 8, 8, 9],
+    )

@@ -47,7 +47,14 @@ class FXData:
             return 1.0
         else:
             # Get the USD to currency rate at the date or the closest date before the date
-            to_usd = self.fx_data[currency].loc[:date, "PRICE"].iloc[-1]
+            fxs = self.fx_data[currency].loc[:date, "PRICE"]
+
+            # if fxs is empty, return first value of the series otherwise return the last value
+            to_usd = (
+                fxs.iloc[-1]
+                if not fxs.empty
+                else self.fx_data[currency].iloc[0]["PRICE"]
+            )
 
         # Then get the GBP to USD rate
         to_gbp = self.fx_data["GBP"].loc[:date, "PRICE"].iloc[-1]
