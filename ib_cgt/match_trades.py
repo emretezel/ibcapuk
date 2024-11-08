@@ -116,11 +116,13 @@ def match_trades(trades_file: str, instrument_type: str) -> list[Disposal]:
 
 
 def create_disposal(disposal_trades, matching_trades):
-    trade = disposal_trades[0]
+    aggregated_trade = disposal_trades[0]
+
     for trade in disposal_trades[1:]:
-        trade += trade
+        aggregated_trade += trade
+
     # Create a disposal trade object with the matching trades
-    disposal = Disposal(trade, matching_trades)
+    disposal = Disposal(aggregated_trade, matching_trades)
     return disposal
 
 
@@ -277,11 +279,3 @@ def process_matching_trade(
     all_trades.at[matching_trade_id, "Notional Value GBP"] *= scale
     all_trades.at[matching_trade_id, "Comm in GBP"] *= scale
     return disposal_trade, matching_trade
-
-
-if __name__ == "__main__":
-    futures_disposals = match_trades("trades.csv", "Futures")
-
-    for future_disposal in futures_disposals:
-        print(future_disposal)
-    pass

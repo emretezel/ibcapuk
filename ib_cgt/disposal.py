@@ -75,6 +75,7 @@ class Disposal:
         # Prepare data for disposal trade table
         disposal_trade_table = [
             [
+                self.disposal_trade.trade_id,
                 self.disposal_trade.trade_date,
                 self.disposal_trade.quantity,
                 self.disposal_trade.symbol,
@@ -88,6 +89,7 @@ class Disposal:
 
         # Header for the disposal trade table
         headers = [
+            "ID",
             "Date",
             "Qty",
             "Symbol",
@@ -106,6 +108,7 @@ class Disposal:
         # Prepare data for matching trades table
         matching_trades_table = [
             [
+                trade.trade_id,
                 trade.trade_date,
                 trade.quantity,
                 trade.symbol,

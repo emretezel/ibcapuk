@@ -166,18 +166,3 @@ def create_df(columns, trades):
     # Remove columns which are \xa0
     df = df.loc[:, df.columns != "\xa0"]
     return df
-
-
-if __name__ == "__main__":
-    parse_trades(
-        [
-            "../statements/18_19.htm",
-            "../statements/19_20.htm",
-            "../statements/20_21.htm",
-            "../statements/21_22.htm",
-            "../statements/22_23.htm",
-            "../statements/23_24.htm",
-            "../statements/24_25.htm",
-        ],
-        [8, 8, 8, 8, 8, 8, 9],
-    )
