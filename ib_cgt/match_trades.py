@@ -9,16 +9,14 @@ import numpy as np
 from ib_cgt.disposal import Disposal
 
 
-def calculate_gain_and_loss(
-    trades_file: str, instrument_type: str, output_file: str = "gain_and_loss.txt"
-):
+def match_trades(trades_file: str, instrument_type: str) -> list[Disposal]:
     """
     Calculate the gain and loss of disposed instruments.
 
     Args:
         trades_file: The CSV file containing the trades.
         instrument_type: The type of instrument to calculate the gain and loss for.
-        output_file: The CSV file to write the gain and loss to.
+        :return: A list of disposals.
     """
     # Raise exception if instrument type is not Futures
     if instrument_type != "Futures":
@@ -114,12 +112,7 @@ def calculate_gain_and_loss(
             disposal = create_disposal(disposal_trades, matching_trades)
             disposals.append(disposal)
 
-    open_positions = all_trades[all_trades["Quantity"] != 0]
-
-    # Write all disposals to a CSV file
-    with open(output_file, "w") as f:
-        for disposal in disposals:
-            f.write(str(disposal) + "\n")
+    return disposals
 
 
 def create_disposal(disposal_trades, matching_trades):
@@ -132,6 +125,10 @@ def create_disposal(disposal_trades, matching_trades):
 
 
 def collapse_section_104_trades(all_trades, section_104_trades):
+    # If section 104 trades contain only one trade, then there is nothing to collapse
+    if len(section_104_trades) == 1:
+        return
+
     total_quantity = section_104_trades["Quantity"].sum()
     total_notional_value = section_104_trades["Notional Value"].sum()
     total_commission = section_104_trades["Comm/Fee"].sum()
@@ -283,4 +280,8 @@ def process_matching_trade(
 
 
 if __name__ == "__main__":
-    calculate_gain_and_loss("trades.csv", "Futures")
+    futures_disposals = match_trades("trades.csv", "Futures")
+
+    for future_disposal in futures_disposals:
+        print(future_disposal)
+    pass

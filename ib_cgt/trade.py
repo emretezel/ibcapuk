@@ -47,6 +47,16 @@ class Trade:
         self.notional_value_gbp = notional_value_gbp
         self.commission_gbp = commission_gbp
 
+    @property
+    def fx(self):
+        """
+        Calculate the FX rate for the trade.
+
+        Returns:
+            The FX rate for the trade.
+        """
+        return self.notional_value / self.notional_value_gbp
+
     def __add__(self, other):
         """
         Add two trades together.
@@ -70,10 +80,4 @@ class Trade:
             commission=self.commission + other.commission,
             notional_value_gbp=self.notional_value_gbp + other.notional_value_gbp,
             commission_gbp=self.commission_gbp + other.commission_gbp,
-        )
-
-    def __str__(self):
-        return (
-            f"Trade ID: {self.trade_id}, Symbol: {self.symbol}, Date: {self.trade_date}, Quantity: {self.quantity}, "
-            f"Notional Value: {self.notional_value}, Commission: {self.commission}"
         )
