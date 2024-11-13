@@ -13,6 +13,7 @@ class Trade:
 
     def __init__(
         self,
+        trade_type: str,
         trade_id: int,
         symbol: str,
         currency: str,
@@ -27,6 +28,7 @@ class Trade:
         Initialize a trade object.
 
         Args:
+            trade_type: The type of the trade.
             trade_id: The ID of the trade.
             symbol: The symbol of the instrument.
             currency: The currency of the instrument.
@@ -37,6 +39,7 @@ class Trade:
             notional_value_gbp: The notional value of the trade in GBP.
             commission_gbp: The commission paid for the trade in GBP.
         """
+        self.trade_type = trade_type
         self.trade_id = trade_id
         self.symbol = symbol
         self.currency = currency
@@ -55,7 +58,11 @@ class Trade:
         Returns:
             The FX rate for the trade.
         """
-        return self.notional_value / self.notional_value_gbp
+        return (
+            self.notional_value / self.notional_value_gbp
+            if self.notional_value_gbp != 0
+            else 0
+        )
 
     def __add__(self, other):
         """
@@ -71,6 +78,7 @@ class Trade:
             raise ValueError("Cannot add trades with different symbols.")
 
         return Trade(
+            trade_type=self.trade_type,
             trade_id=self.trade_id,
             symbol=self.symbol,
             currency=self.currency,

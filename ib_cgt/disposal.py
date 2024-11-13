@@ -34,20 +34,44 @@ class Disposal:
         return self.disposal_trade.notional_value_gbp
 
     @property
+    def trade_type(self) -> str:
+        """
+        Get the trade type of the disposal trade.
+
+        Returns:
+            The trade type.
+        """
+        return self.disposal_trade.trade_type
+
+    @property
     def costs(self) -> float:
         """
-        Calculate the costs. Add the fees in GBP for all the matching trades and the disposal trade.
+        Calculate the costs. For Futures use the same fx rate as the disposal trade, otherwise use the fx rate of the
+        matching trade.
 
         Returns:
             The costs.
         """
-        return (
-            sum(
-                trade.notional_value_gbp + trade.commission_gbp
-                for trade in self.matching_trades
-            )
-            + self.disposal_trade.commission_gbp
+        fx = (
+            self.disposal_trade.fx
+            if self.trade_type == "Futures"
+            else self.matching_trades[0].fx
         )
+
+        # First sum the notional values of the matching trades
+        notional_values_gbp = sum(
+            trade.notional_value for trade in self.matching_trades
+        ) * (1 / fx)
+
+        if self.trade_type == "Forex":
+            fees_gbp = sum(trade.commission_gbp for trade in self.matching_trades)
+        else:
+            fees_gbp = sum(trade.commission for trade in self.matching_trades) * (
+                1 / fx
+            )
+
+        fees_gbp += self.disposal_trade.commission_gbp
+        return notional_values_gbp + fees_gbp
 
     @property
     def gain(self) -> float:
@@ -127,12 +151,18 @@ class Disposal:
         )
 
         # Gain/loss info
-        gain_loss_info = (
-            f"Resulting gain/loss: {self.gain if self.gain > 0 else self.loss:,.2f} GBP"
+        # If the trade type is Futures say at the end using FX at disposal date otherwise say
+        # using FX rates of each trade date.
+        gain_loss_info = f"Resulting in a gain/loss of {self.gain if self.gain > 0 else self.loss:,.2f} GBP, using "
+
+        gain_loss_info += (
+            f"the FX rate on the disposal date."
+            if self.trade_type == "Futures"
+            else f"corresponding FX rates on each trade date."
         )
 
         # Combine everything into the final output
         return (
-            f"{line}\nDisposing Trade:\n{disposal_trade_info}\n\nMatching Trades:\n{matching_trades_info}\n\n"
+            f"{line}\nDisposing {self.disposal_trade.trade_type} Trade:\n{disposal_trade_info}\n\nMatching Trades:\n{matching_trades_info}\n\n"
             f"{gain_loss_info}\n{line}"
         )

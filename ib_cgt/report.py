@@ -3,7 +3,7 @@ A module for reporting UK Tax Year Gain/Loss for a given set of trades.
 Author: Emre Tezel
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ib_cgt.disposal import Disposal
 from tabulate import tabulate
@@ -40,19 +40,15 @@ def report(year: int, disposals: list[Disposal]):
         # First create a line of 120 characters and print the start and end date of the tax year, including month and day
         # but no hour
         f.write("-" * 120 + "\n")
+
+        # Subtract one day from the end date
+        end_date -= timedelta(days=1)
+
         f.write(
             f"Tax Year: {start_date.strftime('%d %B')} {start_date.year} - {end_date.strftime('%d %B')} "
             f"{end_date.year}\n"
         )
-        f.write("-" * 120 + "\n")
 
-        # Next print the str representation of the disposals
-        for disposal in disposals:
-            f.write(str(disposal) + "\n")
-
-        # Finally print a table with the number of disposals, disposal proceeds, costs, gains, losses and
-        # total gains/losses
-        f.write("\n")
         f.write(
             # Align column values to the right
             tabulate(
@@ -68,3 +64,10 @@ def report(year: int, disposals: list[Disposal]):
                 colalign=("left", "right"),
             )
         )
+
+        f.write("\n")
+        f.write("-" * 120 + "\n")
+
+        # Next print the str representation of the disposals
+        for disposal in disposals:
+            f.write(str(disposal) + "\n")

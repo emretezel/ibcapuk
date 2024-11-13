@@ -9,24 +9,24 @@ import numpy as np
 from ib_cgt.disposal import Disposal
 
 
-def match_trades(trades_file: str, instrument_type: str) -> list[Disposal]:
+def match_trades(trades_file: str, instrument_types: list[str]) -> list[Disposal]:
     """
     Calculate the gain and loss of disposed instruments.
 
     Args:
         trades_file: The CSV file containing the trades.
-        instrument_type: The type of instrument to calculate the gain and loss for.
+        instrument_types: The type of instruments to calculate the gain and loss for.
         :return: A list of disposals.
     """
-    # Raise exception if instrument type is not Futures
-    if instrument_type != "Futures":
-        raise ValueError("Only Futures are supported at the moment.")
+    # Raise exception if instrument type contains Bonds
+    if "Bonds" in instrument_types:
+        raise ValueError("Bonds are not supported.")
 
     # Read the trades from the CSV file into a DataFrame. Parse the dates as dates.
     all_trades = pd.read_csv(trades_file, parse_dates=["Date/Time"])
 
     # Filter the trades by the instrument type
-    all_trades = all_trades[all_trades["Instrument Type"] == instrument_type]
+    all_trades = all_trades[all_trades["Instrument Type"].isin(instrument_types)]
 
     # Sort the data frame by symbol and date in ascending order
     all_trades = all_trades.sort_values(by=["Symbol", "Date/Time"])
@@ -229,6 +229,7 @@ def process_matching_trade(
 
     # Create a matching trade object
     matching_trade = Trade(
+        matching_trade_row["Instrument Type"],
         matching_trade_id,
         matching_trade_row["Symbol"],
         matching_trade_row["Currency"],
@@ -244,6 +245,7 @@ def process_matching_trade(
 
     # Create a disposal trade object
     disposal_trade = Trade(
+        disposal_trade_row["Instrument Type"],
         disposal_trade_id,
         disposal_trade_row["Symbol"],
         disposal_trade_row["Currency"],

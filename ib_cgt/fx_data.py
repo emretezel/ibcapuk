@@ -18,7 +18,13 @@ class FXData:
         # The first column of each dataframe is the date, make it the index.
         self.fx_data = {}
 
-        for file in Path("fx").glob("*.csv"):
+        # Get the path to this module
+        module_path = Path(__file__).parent
+
+        # Add the fx folder to the path
+        fx_path = module_path / "fx"
+
+        for file in Path(fx_path).glob("*.csv"):
             key = file.stem[:3]
             self.fx_data[key] = pd.read_csv(file, parse_dates=["DATETIME"])
 

@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from ib_cgt.fx_data import FXData
 
 
-INSTRUMENT_TYPES = ["Futures", "Stocks", "Forex", "Bonds"]
+INSTRUMENT_TYPES = ["Futures", "Stocks", "Forex", "Bonds", "Equity and Index Options"]
 
 
 def convert_to_number_if_possible(s: str):
@@ -124,7 +124,8 @@ def parse_trades(
     trades["Notional Value"] = trades.apply(
         lambda trade: (
             trade["Proceeds"]
-            if trade["Instrument Type"] in ["Forex", "Bonds", "Stocks"]
+            if trade["Instrument Type"]
+            in ["Forex", "Bonds", "Stocks", "Equity and Index Options", "Bonds"]
             else trade["Notional Value"]
         ),
         axis=1,
