@@ -9,13 +9,16 @@ import numpy as np
 from ib_cgt.disposal import Disposal
 
 
-def match_trades(trades_file: str, instrument_types: list[str]) -> list[Disposal]:
+def match_trades(
+    trades_file: str, instrument_types: list[str], unmatched_file: str = "unmatched.csv"
+) -> list[Disposal]:
     """
     Calculate the gain and loss of disposed instruments.
 
     Args:
         trades_file: The CSV file containing the trades.
         instrument_types: The type of instruments to calculate the gain and loss for.
+        unmatched_file: The file to write the unmatched trades.
         :return: A list of disposals.
     """
     # Raise exception if instrument type contains Bonds
@@ -112,6 +115,9 @@ def match_trades(trades_file: str, instrument_types: list[str]) -> list[Disposal
             disposal = create_disposal(disposal_trades, matching_trades)
             disposals.append(disposal)
 
+    # Save unmatched trades to a file
+    unmatched_trades = all_trades[all_trades["Quantity"] != 0]
+    unmatched_trades.to_csv(unmatched_file, index=False)
     return disposals
 
 

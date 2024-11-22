@@ -163,6 +163,7 @@ class Disposal:
 
         # Combine everything into the final output
         return (
-            f"{line}\nDisposing {self.disposal_trade.trade_type} Trade:\n{disposal_trade_info}\n\nMatching Trades:\n{matching_trades_info}\n\n"
+            f"{line}\nDisposing {self.disposal_trade.trade_type}"
+            f" Trade:\n{disposal_trade_info}\n\nMatching Trades:\n{matching_trades_info}\n\n"
             f"{gain_loss_info}\n{line}"
         )
