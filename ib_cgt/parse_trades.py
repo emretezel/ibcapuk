@@ -122,11 +122,11 @@ def parse_trades(
 
     # For Forex, Bonds and Stocks, copy the Proceeds column to the Notional Value column
     trades["Notional Value"] = trades.apply(
-        lambda trade: (
-            trade["Proceeds"]
-            if trade["Instrument Type"]
+        lambda t: (
+            t["Proceeds"]
+            if t["Instrument Type"]
             in ["Forex", "Bonds", "Stocks", "Equity and Index Options", "Bonds"]
-            else trade["Notional Value"]
+            else t["Notional Value"]
         ),
         axis=1,
     )
@@ -137,24 +137,49 @@ def parse_trades(
     # For each row look up the fx rate and add as a column
     fx_data = FXData()
 
-    trades["FX Rate"] = trades.apply(
-        lambda trade: fx_data.get_fx_rate(trade["Currency"], trade["Date/Time"]),
-        axis=1,
-    )
+    # Iterate over the rows of the dataframe. If the trade type is Forex and if one of the currencies is GBP,
+    # then deduct the FX trade from quantity and notional otherwise look up the FX trade.
+    for trade_id in trades.index:
+        trade = trades.loc[trade_id]
 
-    # Create a column by multiplying notional value by fx rate
-    trades["Notional Value GBP"] = trades["Notional Value"] * trades["FX Rate"]
+        if trade["Instrument Type"] == "Forex":
+            symbol = trade["Symbol"]
+
+            if symbol[:3] == "GBP":
+                trades.at[trade_id, "Notional Value GBP"] = -trade["Quantity"]
+                trades.at[trade_id, "FX Rate"] = (
+                    -trade["Quantity"] / trade["Notional Value"]
+                )
+            elif symbol[-3:] == "GBP":
+                trades.at[trade_id, "Notional Value GBP"] = trade["Notional Value"]
+                trades.at[trade_id, "FX Rate"] = (
+                    -trade["Notional Value"] / trade["Quantity"]
+                )
+            else:
+                fx_rate = fx_data.get_fx_rate(trade["Currency"], trade["Date/Time"])
+                trades.at[trade_id, "FX Rate"] = fx_rate
+                trades.at[trade_id, "Notional Value GBP"] = (
+                    trade["Notional Value"] * fx_rate
+                )
+        else:
+            fx_rate = fx_data.get_fx_rate(trade["Currency"], trade["Date/Time"])
+            trades.at[trade_id, "FX Rate"] = fx_rate
+            trades.at[trade_id, "Notional Value GBP"] = (
+                trade["Notional Value"] * fx_rate
+            )
 
     # For Stocks, Futures and Bonds, multiply the Comm/Fee column by the FX Rate and save it under Comm in GBP
     trades["Comm in GBP"] = trades.apply(
-        lambda trade: (
-            trade["Comm in GBP"]
-            if trade["Instrument Type"] == "Forex"
-            else trade["Comm/Fee"] * trade["FX Rate"]
+        lambda t: (
+            t["Comm in GBP"]
+            if t["Instrument Type"] == "Forex"
+            else t["Comm/Fee"] * t["FX Rate"]
         ),
         axis=1,
     )
 
+    # Finally replace any nan values in Comm/Fee column to 0
+    trades["Comm/Fee"] = trades["Comm/Fee"].fillna(0)
     trades.to_csv(output_file, index=False)
 
 

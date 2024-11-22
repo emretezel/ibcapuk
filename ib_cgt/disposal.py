@@ -52,26 +52,22 @@ class Disposal:
         Returns:
             The costs.
         """
-        fx = (
-            self.disposal_trade.fx
-            if self.trade_type == "Futures"
-            else self.matching_trades[0].fx
-        )
+        if self.trade_type == "Futures":
+            fx_rate = self.disposal_trade.fx
 
-        # First sum the notional values of the matching trades
-        notional_values_gbp = sum(
-            trade.notional_value for trade in self.matching_trades
-        ) * (1 / fx)
-
-        if self.trade_type == "Forex":
-            fees_gbp = sum(trade.commission_gbp for trade in self.matching_trades)
-        else:
-            fees_gbp = sum(trade.commission for trade in self.matching_trades) * (
-                1 / fx
+            notional_values_gbp = (
+                sum(trade.notional_value for trade in self.matching_trades) / fx_rate
             )
 
-        fees_gbp += self.disposal_trade.commission_gbp
-        return notional_values_gbp + fees_gbp
+            fees_gbp = sum(trade.commission for trade in self.matching_trades) / fx_rate
+        else:
+            notional_values_gbp = sum(
+                trade.notional_value_gbp for trade in self.matching_trades
+            )
+
+            fees_gbp = sum(trade.commission_gbp for trade in self.matching_trades)
+
+        return notional_values_gbp + fees_gbp + self.disposal_trade.commission_gbp
 
     @property
     def gain(self) -> float:
@@ -94,7 +90,7 @@ class Disposal:
         return min(0.0, self.disposal_proceeds + self.costs)
 
     def __str__(self):
-        line = "-" * 120
+        line = "-" * 130
 
         # Prepare data for disposal trade table
         disposal_trade_table = [
@@ -106,6 +102,7 @@ class Disposal:
                 self.disposal_trade.currency,
                 f"{self.disposal_trade.notional_value:,.2f}",
                 f"{self.disposal_trade.notional_value_gbp:,.2f}",
+                f"{self.disposal_trade.commission:,.2f}",
                 f"{self.disposal_trade.commission_gbp:,.2f}",
                 f"{self.disposal_trade.fx:,.2f}",
             ]
@@ -120,6 +117,7 @@ class Disposal:
             "Currency",
             "Proceeds",
             "GBP Proceeds",
+            "Fees",
             "Fees in GBP",
             "FX",
         ]
@@ -139,6 +137,7 @@ class Disposal:
                 trade.currency,
                 f"{trade.notional_value:,.2f}",
                 f"{trade.notional_value_gbp:,.2f}",
+                f"{trade.commission:,.2f}",
                 f"{trade.commission_gbp:,.2f}",
                 f"{trade.fx:,.2f}",
             ]

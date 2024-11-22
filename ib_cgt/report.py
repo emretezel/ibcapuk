@@ -39,7 +39,7 @@ def report(year: int, disposals: list[Disposal]):
     with open(f"{year}TaxYearReport.txt", "w") as f:
         # First create a line of 120 characters and print the start and end date of the tax year, including month and day
         # but no hour
-        f.write("-" * 120 + "\n")
+        f.write("-" * 130 + "\n")
 
         # Subtract one day from the end date
         end_date -= timedelta(days=1)
@@ -66,7 +66,7 @@ def report(year: int, disposals: list[Disposal]):
         )
 
         f.write("\n")
-        f.write("-" * 120 + "\n")
+        f.write("-" * 130 + "\n")
 
         # Next print the str representation of the disposals
         for disposal in disposals:

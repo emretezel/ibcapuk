@@ -50,6 +50,8 @@ class Trade:
         self.notional_value_gbp = notional_value_gbp
         self.commission_gbp = commission_gbp
 
+        # If the trade type is Forex and one of the currencies is GBP, then we should up
+
     @property
     def fx(self):
         """
