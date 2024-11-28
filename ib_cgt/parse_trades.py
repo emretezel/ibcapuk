@@ -106,19 +106,34 @@ def parse_trades(
 
     # Only keep the following columns: "Instrument Type", "Currency", "Date/Time", "Quantity", "Notional Value",
     # "Comm/Fee", Symbol, Proceeds, "Comm in GBP"
-    trades = trades[
-        [
-            "Instrument Type",
-            "Currency",
-            "Symbol",
-            "Date/Time",
-            "Quantity",
-            "Notional Value",
-            "Proceeds",
-            "Comm/Fee",
-            "Comm in GBP",
+    # Sometimes Notional Value column is not available if there are no futures trades, check.
+    if "Notional Value" not in trades.columns:
+        trades = trades[
+            [
+                "Instrument Type",
+                "Currency",
+                "Symbol",
+                "Date/Time",
+                "Quantity",
+                "Proceeds",
+                "Comm/Fee",
+                "Comm in GBP",
+            ]
         ]
-    ]
+    else:
+        trades = trades[
+            [
+                "Instrument Type",
+                "Currency",
+                "Symbol",
+                "Date/Time",
+                "Quantity",
+                "Notional Value",
+                "Proceeds",
+                "Comm/Fee",
+                "Comm in GBP",
+            ]
+        ]
 
     # For Forex, Bonds and Stocks, copy the Proceeds column to the Notional Value column
     trades["Notional Value"] = trades.apply(
