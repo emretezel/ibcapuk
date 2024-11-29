@@ -3,7 +3,7 @@ Module for disposal of an instrument.
 Author: Emre Tezel
 """
 
-from ib_cgt.trade import Trade
+from ibcapuk.trade import Trade
 from tabulate import tabulate
 
 

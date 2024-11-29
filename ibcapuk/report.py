@@ -5,7 +5,7 @@ Author: Emre Tezel
 
 from datetime import datetime, timedelta
 
-from ib_cgt.disposal import Disposal
+from ibcapuk.disposal import Disposal
 from tabulate import tabulate
 
 

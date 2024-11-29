@@ -5,7 +5,7 @@ Author: Emre Tezel
 
 import pandas as pd
 from bs4 import BeautifulSoup
-from ib_cgt.fx_data import FXData
+from ibcapuk.fx_data import FXData
 
 
 INSTRUMENT_TYPES = ["Futures", "Stocks", "Forex", "Bonds", "Equity and Index Options"]

@@ -4,9 +4,9 @@ Author: Emre Tezel
 """
 
 import pandas as pd
-from ib_cgt.trade import Trade
+from ibcapuk.trade import Trade
 import numpy as np
-from ib_cgt.disposal import Disposal
+from ibcapuk.disposal import Disposal
 
 
 def match_trades(
