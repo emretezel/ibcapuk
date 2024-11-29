@@ -14,6 +14,7 @@ setup(
         "pandas>=2.2.2",
         "setuptools>=75.1.0",
         "tabulate>=0.9.0",
+        "fpdf2>=2.8.1",
     ],  # List dependencies here (initially empty)
     python_requires=">=3.12",  # Specify Python version compatibility
 )

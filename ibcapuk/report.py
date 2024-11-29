@@ -4,7 +4,7 @@ Author: Emre Tezel
 """
 
 from datetime import datetime, timedelta
-
+from fpdf import FPDF, XPos, YPos
 from ibcapuk.disposal import Disposal
 from tabulate import tabulate
 
@@ -31,47 +31,54 @@ def report(year: int, disposals: list[Disposal], file_name: str = None):
 
     number_disposals = len(disposals)
     disposal_proceeds = sum(disposal.disposal_proceeds for disposal in disposals)
-    costs = sum(disposal.costs for disposal in disposals)
+    costs = -sum(disposal.costs for disposal in disposals)
     gains = sum(disposal.gain for disposal in disposals)
-    losses = sum(disposal.loss for disposal in disposals)
-    total_gains_losses = gains + losses
+    losses = -sum(disposal.loss for disposal in disposals)
+    total_gains_losses = gains - losses
 
     if file_name is None:
-        file_name = f"{year}TaxYearReport.txt"
+        file_name = f"{year}TaxYearReport.pdf"
 
-    # Create a file named with the tax year + "TaxYearReport.txt"
-    with open(file_name, "w") as f:
-        # First create a line of 120 characters and print the start and end date of the tax year, including month and day
-        # but no hour
-        f.write("-" * 130 + "\n")
+    pdf = FPDF(orientation="landscape", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Courier", size=10)
 
-        # Subtract one day from the end date
-        end_date -= timedelta(days=1)
+    # First create a line of 120 characters and print the start and end date of the tax year, including month and day
+    # but no hour
+    pdf.cell(text="-" * 130, new_x=XPos.LEFT, new_y=YPos.NEXT)
 
-        f.write(
-            f"Tax Year: {start_date.strftime('%d %B')} {start_date.year} - {end_date.strftime('%d %B')} "
-            f"{end_date.year}\n"
-        )
+    # Subtract one day from the end date
+    end_date -= timedelta(days=1)
 
-        f.write(
-            # Align column values to the right
-            tabulate(
-                [
-                    ["Number of Disposals", number_disposals],
-                    ["Disposal Proceeds", f"{disposal_proceeds:,.2f}"],
-                    ["Costs", f"{costs:,.2f}"],
-                    ["Gains", f"{gains:,.2f}"],
-                    ["Losses", f"{losses:,.2f}"],
-                    ["Total Gains/Losses", f"{total_gains_losses:,.2f}"],
-                ],
-                tablefmt="plain",
-                colalign=("left", "right"),
-            )
-        )
+    pdf.cell(
+        text=f"Tax Year: {start_date.strftime('%d %B')} {start_date.year} - {end_date.strftime('%d %B')} "
+        f"{end_date.year}",
+        new_x=XPos.LEFT,
+        new_y=YPos.NEXT,
+    )
 
-        f.write("\n")
-        f.write("-" * 130 + "\n")
+    table_str = tabulate(
+        [
+            ["Number of Disposals", number_disposals],
+            ["Disposal Proceeds", f"{disposal_proceeds:,.2f}"],
+            ["Costs", f"{costs:,.2f}"],
+            ["Gains", f"{gains:,.2f}"],
+            ["Losses", f"{losses:,.2f}"],
+            ["Total Gains/Losses", f"{total_gains_losses:,.2f}"],
+        ],
+        tablefmt="plain",
+        colalign=("left", "right"),
+    )
 
-        # Next print the str representation of the disposals
-        for disposal in disposals:
-            f.write(str(disposal) + "\n")
+    for line in table_str.split("\n"):
+        pdf.cell(text=line, new_x=XPos.LEFT, new_y=YPos.NEXT)
+
+    pdf.cell(text="-" * 130, new_x=XPos.LEFT, new_y=YPos.NEXT)
+
+    # Next print the str representation of the disposals
+    for disposal in disposals:
+        for line in str(disposal).split("\n"):
+            pdf.cell(text=line, new_x=XPos.LEFT, new_y=YPos.NEXT)
+
+    pdf.output(file_name)

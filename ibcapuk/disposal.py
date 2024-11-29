@@ -52,7 +52,7 @@ class Disposal:
         Returns:
             The costs.
         """
-        if self.trade_type == "Futures":
+        if self.trade_type in ["Futures", "Forex"]:
             fx_rate = self.disposal_trade.fx
 
             notional_values_gbp = (
@@ -156,13 +156,13 @@ class Disposal:
 
         gain_loss_info += (
             f"the FX rate on the disposal date."
-            if self.trade_type == "Futures"
+            if self.trade_type in ["Futures", "Forex"]
             else f"corresponding FX rates on each trade date."
         )
 
         # Combine everything into the final output
         return (
             f"{line}\nDisposing {self.disposal_trade.trade_type}"
-            f" Trade:\n{disposal_trade_info}\n\nMatching Trades:\n{matching_trades_info}\n\n"
+            f" Trade:\n{disposal_trade_info}\nMatching Trades:\n{matching_trades_info}\n"
             f"{gain_loss_info}\n{line}"
         )
