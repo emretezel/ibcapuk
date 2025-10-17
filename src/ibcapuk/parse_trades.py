@@ -58,6 +58,10 @@ def parse_trades(
         columns = []
 
         for row in table.find_all("tr"):
+            # Skip informational header rows that do not contain column definitions
+            if row.find("th", class_="header-category"):
+                continue
+
             # Check to see whether the row includes the column headers.
             if row.find_all("th"):
                 # If we have previously read columns, then this is the start of a new table for a new instrument type.
