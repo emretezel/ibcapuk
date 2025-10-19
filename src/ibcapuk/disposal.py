@@ -23,34 +23,22 @@ class Disposal:
         self.disposal_trade = disposal_trade
         self.matching_trades = matching_trades
 
-    @property
-    def disposal_proceeds(self) -> float:
+    def _is_buy_disposal(self) -> bool:
         """
-        Calculate the disposal proceeds.
+        Check if the disposal trade is a buy (used to identify short closures).
+        """
+        return self.disposal_trade.quantity > 0
 
-        Returns:
-            The disposal proceeds.
+    def _base_disposal_proceeds(self) -> float:
+        """
+        Base calculation for disposal proceeds before adjusting for short closures.
         """
         return self.disposal_trade.notional_value_gbp
 
-    @property
-    def trade_type(self) -> str:
+    def _base_costs(self) -> float:
         """
-        Get the trade type of the disposal trade.
-
-        Returns:
-            The trade type.
-        """
-        return self.disposal_trade.trade_type
-
-    @property
-    def costs(self) -> float:
-        """
-        Calculate the costs. For Futures use the same fx rate as the disposal trade, otherwise use the fx rate of the
-        matching trade.
-
-        Returns:
-            The costs.
+        Base calculation for costs before adjusting for short closures. For Futures use the same fx rate as the disposal
+        trade, otherwise use the fx rate of the matching trade.
         """
         if self.trade_type in ["Futures", "Forex"]:
             fx_rate = self.disposal_trade.fx
@@ -68,6 +56,44 @@ class Disposal:
             fees_gbp = sum(trade.commission_gbp for trade in self.matching_trades)
 
         return notional_values_gbp + fees_gbp + self.disposal_trade.commission_gbp
+
+    @property
+    def disposal_proceeds(self) -> float:
+        """
+        Calculate the disposal proceeds.
+
+        Returns:
+            The disposal proceeds.
+        """
+        if self._is_buy_disposal():
+            # Buying to close a short position swaps the interpretation of proceeds/costs.
+            return self._base_costs()
+
+        return self._base_disposal_proceeds()
+
+    @property
+    def trade_type(self) -> str:
+        """
+        Get the trade type of the disposal trade.
+
+        Returns:
+            The trade type.
+        """
+        return self.disposal_trade.trade_type
+
+    @property
+    def costs(self) -> float:
+        """
+        Calculate the costs. For Futures use the same fx rate as the disposal trade, otherwise use the fx rate of the
+        matching trade. When buying to close a short, the disposal proceeds represent the costs.
+
+        Returns:
+            The costs.
+        """
+        if self._is_buy_disposal():
+            return self._base_disposal_proceeds()
+
+        return self._base_costs()
 
     @property
     def gain(self) -> float:
