@@ -3,10 +3,13 @@ A modules that calculates the gain and loss of disposed instruments.
 Author: Emre Tezel
 """
 
-import pandas as pd
-from ibcapuk.trade import Trade
+from collections.abc import Iterable
+
 import numpy as np
+import pandas as pd
+
 from ibcapuk.disposal import Disposal
+from ibcapuk.trade import Trade
 
 
 def match_trades(
@@ -49,66 +52,42 @@ def match_trades(
         disposal_trades = []
         matching_trades = []
 
-        # First check whether there is another trade with the same symbol on the same date but with the opposite
-        # trade action. Ignore the time part of the date.
-        same_day_matching_trades = filter_same_day_trades(all_trades, trade)
+        if _match_disposal_with_candidates(
+            trade_id,
+            filter_same_day_trades(all_trades, trade).index,
+            all_trades,
+            disposal_trades,
+            matching_trades,
+        ):
+            if all_trades.at[trade_id, "Quantity"] == 0:
+                disposals.append(create_disposal(disposal_trades, matching_trades))
+                continue
 
-        # If there are any matching trades, then try to match any/all of them with the disposal trade
-        if len(same_day_matching_trades) > 0:
-            for matching_trade_id in same_day_matching_trades.index:
-                disposal_trade, matching_trade = process_matching_trade(
-                    trade_id, matching_trade_id, all_trades
-                )
-
-                disposal_trades.append(disposal_trade)
-                matching_trades.append(matching_trade)
-
-                if all_trades.at[trade_id, "Quantity"] == 0:
-                    break
-
-        # If we have fully matched the disposal trade, then continue to the next trade
-        if all_trades.at[trade_id, "Quantity"] == 0:
-            disposal = create_disposal(disposal_trades, matching_trades)
-            disposals.append(disposal)
-            continue
-
-        # Next check to see whether in the next 30 days there are trades that can be matched with the disposal trade.
-        # This is the bed and breakfast rule.
-        next_30_days_matching_trades = filter_bed_and_breakfast_trades(
-            all_trades, trade
-        )
-
-        if len(next_30_days_matching_trades) > 0:
-            for matching_trade_id in next_30_days_matching_trades.index:
-                disposal_trade, matching_trade = process_matching_trade(
-                    trade_id, matching_trade_id, all_trades
-                )
-
-                disposal_trades.append(disposal_trade)
-                matching_trades.append(matching_trade)
-
-                if all_trades.at[trade_id, "Quantity"] == 0:
-                    break
-
-        # If we have fully matched the disposal trade, then continue to the next trade
-        if all_trades.at[trade_id, "Quantity"] == 0:
-            disposal = create_disposal(disposal_trades, matching_trades)
-            disposals.append(disposal)
-            continue
+        if _match_disposal_with_candidates(
+            trade_id,
+            filter_bed_and_breakfast_trades(all_trades, trade).index,
+            all_trades,
+            disposal_trades,
+            matching_trades,
+        ):
+            if all_trades.at[trade_id, "Quantity"] == 0:
+                disposals.append(create_disposal(disposal_trades, matching_trades))
+                continue
 
         # Now we need to get the list of all the matching trades occurred in the past.
         section_104_trades = filter_section_104_trades(all_trades, trade)
 
-        if len(section_104_trades) > 0:
+        if not section_104_trades.empty:
             # Sum the quantity, notional value, commission, notional value GBP and commission GBP of the matching trades
-            collapse_section_104_trades(all_trades, section_104_trades)
+            first_trade_id = collapse_section_104_trades(all_trades, section_104_trades)
 
-            disposal_trade, matching_trade = process_matching_trade(
-                trade_id, section_104_trades.index[0], all_trades
+            _match_disposal_with_candidates(
+                trade_id,
+                [first_trade_id],
+                all_trades,
+                disposal_trades,
+                matching_trades,
             )
-
-            disposal_trades.append(disposal_trade)
-            matching_trades.append(matching_trade)
 
         # If disposal trades list is not empty, aggregate the disposal trades.
         if disposal_trades:
@@ -121,21 +100,31 @@ def match_trades(
     return disposals
 
 
-def create_disposal(disposal_trades, matching_trades):
-    aggregated_trade = disposal_trades[0]
-
-    for trade in disposal_trades[1:]:
-        aggregated_trade += trade
+def create_disposal(
+    disposal_trades: list[Trade], matching_trades: list[Trade]
+) -> Disposal:
+    aggregated_trade = aggregate_disposal_trades(disposal_trades)
 
     # Create a disposal trade object with the matching trades
     disposal = Disposal(aggregated_trade, matching_trades)
     return disposal
 
 
-def collapse_section_104_trades(all_trades, section_104_trades):
+def aggregate_disposal_trades(disposal_trades: list[Trade]) -> Trade:
+    aggregated_trade = disposal_trades[0]
+
+    for trade in disposal_trades[1:]:
+        aggregated_trade += trade
+
+    return aggregated_trade
+
+
+def collapse_section_104_trades(
+    all_trades: pd.DataFrame, section_104_trades: pd.DataFrame
+) -> int:
     # If section 104 trades contain only one trade, then there is nothing to collapse
     if len(section_104_trades) == 1:
-        return
+        return section_104_trades.index[0]
 
     total_quantity = section_104_trades["Quantity"].sum()
     total_notional_value = section_104_trades["Notional Value"].sum()
@@ -143,26 +132,28 @@ def collapse_section_104_trades(all_trades, section_104_trades):
     total_notional_value_gbp = section_104_trades["Notional Value GBP"].sum()
     total_commission_gbp = section_104_trades["Comm in GBP"].sum()
 
+    first_trade_id = section_104_trades.index[0]
+
     # Delete all but the first matching trade from the all trade dataframe
     for matching_trade_id in section_104_trades.index[1:]:
         all_trades.drop(matching_trade_id, inplace=True)
 
     # For the first matching trade, update the quantity, notional value, commission, notional value GBP and
     # commission GBP to the total values
-    all_trades.at[section_104_trades.index[0], "Quantity"] = total_quantity
-    all_trades.at[section_104_trades.index[0], "Notional Value"] = total_notional_value
-    all_trades.at[section_104_trades.index[0], "Comm/Fee"] = total_commission
-
-    all_trades.at[section_104_trades.index[0], "Notional Value GBP"] = (
-        total_notional_value_gbp
-    )
-
-    all_trades.at[section_104_trades.index[0], "Comm in GBP"] = total_commission_gbp
+    all_trades.at[first_trade_id, "Quantity"] = total_quantity
+    all_trades.at[first_trade_id, "Notional Value"] = total_notional_value
+    all_trades.at[first_trade_id, "Comm/Fee"] = total_commission
+    all_trades.at[first_trade_id, "Notional Value GBP"] = total_notional_value_gbp
+    all_trades.at[first_trade_id, "Comm in GBP"] = total_commission_gbp
 
     # Update the fx rate by dividing the total notional value to the total notional value GBP
-    all_trades.at[section_104_trades.index[0], "FX Rate"] = (
+    all_trades.at[first_trade_id, "FX Rate"] = (
         total_notional_value_gbp / total_notional_value
+        if total_notional_value != 0
+        else 0
     )
+
+    return first_trade_id
 
 
 def filter_section_104_trades(all_trades, disposal_trade):
@@ -211,9 +202,36 @@ def filter_same_day_trades(all_trades, disposal_trade):
     return same_day_matching_trades
 
 
+def _match_disposal_with_candidates(
+    disposal_trade_id: int,
+    matching_trade_ids: Iterable[int],
+    all_trades: pd.DataFrame,
+    disposal_trades: list[Trade],
+    matching_trades: list[Trade],
+) -> bool:
+    """
+    Match a disposal trade against the provided candidate trade ids, updating the tracking collections.
+    Returns True when at least one match is made.
+    """
+    matched = False
+
+    for matching_trade_id in matching_trade_ids:
+        disposal_trade, matching_trade = process_matching_trade(
+            disposal_trade_id, matching_trade_id, all_trades
+        )
+        disposal_trades.append(disposal_trade)
+        matching_trades.append(matching_trade)
+        matched = True
+
+        if all_trades.at[disposal_trade_id, "Quantity"] == 0:
+            break
+
+    return matched
+
+
 def process_matching_trade(
     disposal_trade_id: int, matching_trade_id: int, all_trades: pd.DataFrame
-) -> (Trade, Trade):
+) -> tuple[Trade, Trade]:
     """
     Process a matching trade. Decrease the quantity of both the disposal trade and the matching trade by the
     minimum of their quantities. Update the notional value, commission, notional value GBP and commission GBP of the
@@ -231,59 +249,65 @@ def process_matching_trade(
         abs(disposal_trade_row["Quantity"]), abs(matching_trade_row["Quantity"])
     )
 
-    scale = quantity_to_match / abs(matching_trade_row["Quantity"])
-
     # Create a matching trade object
-    matching_trade = Trade(
-        matching_trade_row["Instrument Type"],
-        matching_trade_id,
-        matching_trade_row["Symbol"],
-        matching_trade_row["Currency"],
-        matching_trade_row["Date/Time"],
-        quantity_to_match * np.sign(matching_trade_row["Quantity"]),
-        matching_trade_row["Notional Value"] * scale,
-        matching_trade_row["Comm/Fee"] * scale,
-        matching_trade_row["Notional Value GBP"] * scale,
-        matching_trade_row["Comm in GBP"] * scale,
+    matching_trade = _create_partial_trade(
+        matching_trade_row, matching_trade_id, quantity_to_match
     )
-
-    scale = quantity_to_match / abs(disposal_trade_row["Quantity"])
 
     # Create a disposal trade object
-    disposal_trade = Trade(
-        disposal_trade_row["Instrument Type"],
-        disposal_trade_id,
-        disposal_trade_row["Symbol"],
-        disposal_trade_row["Currency"],
-        disposal_trade_row["Date/Time"],
-        quantity_to_match * np.sign(disposal_trade_row["Quantity"]),
-        disposal_trade_row["Notional Value"] * scale,
-        disposal_trade_row["Comm/Fee"] * scale,
-        disposal_trade_row["Notional Value GBP"] * scale,
-        disposal_trade_row["Comm in GBP"] * scale,
+    disposal_trade = _create_partial_trade(
+        disposal_trade_row, disposal_trade_id, quantity_to_match
     )
 
-    # Update quantity, notional value and commission of the disposal trade in the trades dataframe
-    remaining_disposal_trade_quantity = disposal_trade_row[
-        "Quantity"
-    ] - quantity_to_match * np.sign(disposal_trade_row["Quantity"])
-
-    scale = remaining_disposal_trade_quantity / disposal_trade_row["Quantity"]
-    all_trades.at[disposal_trade_id, "Quantity"] = remaining_disposal_trade_quantity
-    all_trades.at[disposal_trade_id, "Notional Value"] *= scale
-    all_trades.at[disposal_trade_id, "Comm/Fee"] *= scale
-    all_trades.at[disposal_trade_id, "Notional Value GBP"] *= scale
-    all_trades.at[disposal_trade_id, "Comm in GBP"] *= scale
-
-    # Update quantity, notional value and commission of the matching trade in the trades dataframe
-    remaining_matching_trade_quantity = matching_trade_row[
-        "Quantity"
-    ] - quantity_to_match * np.sign(matching_trade_row["Quantity"])
-
-    scale = remaining_matching_trade_quantity / matching_trade_row["Quantity"]
-    all_trades.at[matching_trade_id, "Quantity"] = remaining_matching_trade_quantity
-    all_trades.at[matching_trade_id, "Notional Value"] *= scale
-    all_trades.at[matching_trade_id, "Comm/Fee"] *= scale
-    all_trades.at[matching_trade_id, "Notional Value GBP"] *= scale
-    all_trades.at[matching_trade_id, "Comm in GBP"] *= scale
+    _update_remaining_trade(
+        all_trades, disposal_trade_id, disposal_trade_row, quantity_to_match
+    )
+    _update_remaining_trade(
+        all_trades, matching_trade_id, matching_trade_row, quantity_to_match
+    )
     return disposal_trade, matching_trade
+
+
+def _create_partial_trade(
+    trade_row: pd.Series, trade_id: int, quantity_to_match: float
+) -> Trade:
+    """
+    Create a Trade scaled to the matched quantity from an existing trade row.
+    """
+    scale = quantity_to_match / abs(trade_row["Quantity"])
+
+    return Trade(
+        trade_row["Instrument Type"],
+        trade_id,
+        trade_row["Symbol"],
+        trade_row["Currency"],
+        trade_row["Date/Time"],
+        quantity_to_match * np.sign(trade_row["Quantity"]),
+        trade_row["Notional Value"] * scale,
+        trade_row["Comm/Fee"] * scale,
+        trade_row["Notional Value GBP"] * scale,
+        trade_row["Comm in GBP"] * scale,
+    )
+
+
+def _update_remaining_trade(
+    all_trades: pd.DataFrame,
+    trade_id: int,
+    trade_row: pd.Series,
+    quantity_to_match: float,
+) -> None:
+    """
+    Update the residual quantity and financial totals of a trade after matching.
+    """
+    signed_match = quantity_to_match * np.sign(trade_row["Quantity"])
+    remaining_quantity = trade_row["Quantity"] - signed_match
+    original_quantity = trade_row["Quantity"]
+    all_trades.at[trade_id, "Quantity"] = remaining_quantity
+
+    if original_quantity == 0:
+        scale = 0
+    else:
+        scale = remaining_quantity / original_quantity
+
+    for column in ("Notional Value", "Comm/Fee", "Notional Value GBP", "Comm in GBP"):
+        all_trades.at[trade_id, column] *= scale
